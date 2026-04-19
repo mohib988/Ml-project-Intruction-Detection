@@ -14,7 +14,7 @@ from network_topology import NetworkTopology, NetworkDevice
 from network_visualization import (
     create_network_graph, create_device_status_table,
     create_attack_timeline, create_attack_matrix, 
-    create_device_health_gauge
+    
 )
 from pipeline import AttackDetectionPipeline
 from device_simulator import DeviceSimulator
@@ -110,9 +110,7 @@ def test_network_visualization():
         # Create other visualizations
         timeline_fig = create_attack_timeline(topology)
         print(f"✓ Timeline figure created: {timeline_fig is not None}")
-        
-        health_fig = create_device_health_gauge(topology)
-        print(f"✓ Health gauge created: {health_fig is not None}")
+     
         
         return True
     except Exception as e:

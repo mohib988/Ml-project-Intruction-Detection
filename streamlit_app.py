@@ -16,7 +16,7 @@ from network_topology import NetworkTopology
 from network_visualization import (
     create_network_graph, create_device_status_table, 
     create_attack_flow_visualization, create_attack_timeline,
-    create_device_health_gauge, create_attack_matrix
+     create_attack_matrix
 )
 
 
@@ -131,7 +131,8 @@ with st.sidebar:
             'SQL_injection_attack',
             'XSS_attack',
             'Backdoor_attack',
-            'MITM_attack'
+            'MITM_attack',
+            'Normal'
         ],
         index=0
     )
@@ -323,42 +324,6 @@ st.subheader("📋 Device Status Table")
 
 device_df = create_device_status_table(st.session_state.network_topology)
 st.dataframe(device_df, use_container_width=True, hide_index=True)
-
-st.divider()
-
-# ==================== ANALYTICS SECTION ====================
-col_analytics1, col_analytics2 = st.columns(2)
-
-with col_analytics1:
-    st.subheader("🛡️ Network Health")
-    fig_health = create_device_health_gauge(st.session_state.network_topology)
-    st.plotly_chart(fig_health, use_container_width=True)
-
-with col_analytics2:
-    st.subheader("🎯 Attacks by Type")
-    fig_timeline = create_attack_timeline(st.session_state.network_topology)
-    if fig_timeline:
-        st.plotly_chart(fig_timeline, use_container_width=True)
-    else:
-        st.info("No attacks recorded yet")
-
-st.divider()
-
-# ==================== RECENT DETECTIONS ====================
-st.subheader("⏱️ Recent Attack Detections")
-
-if st.session_state.detection_history:
-    detection_df = pd.DataFrame(st.session_state.detection_history)
-    
-    # Format the dataframe for display
-    display_df = detection_df.copy()
-    display_df['timestamp'] = display_df['timestamp'].dt.strftime('%H:%M:%S')
-    display_df['confidence'] = display_df['confidence'].apply(lambda x: f"{x*100:.1f}%")
-    
-    st.dataframe(display_df[['timestamp', 'attacker', 'target', 'attack_type', 'confidence', 'status']], 
-                 use_container_width=True, hide_index=True)
-else:
-    st.info("📭 No detections yet. Launch an attack and run detection to see results.")
 
 st.divider()
 

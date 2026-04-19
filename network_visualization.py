@@ -170,46 +170,6 @@ def create_attack_timeline(topology):
     return fig
 
 
-def create_device_health_gauge(topology):
-    """Create device health gauge"""
-    stats = topology.get_network_stats()
-    
-    total = stats['total_devices']
-    healthy = total - stats['under_attack'] - stats['attacked'] - stats['compromised']
-    health_percentage = (healthy / total * 100) if total > 0 else 0
-    
-    fig = go.Figure(go.Indicator(
-        mode='gauge+number+delta',
-        value=health_percentage,
-        title={'text': '🛡️ Network Health'},
-        delta={'reference': 100},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': '#4ECDC4'},
-            'steps': [
-                {'range': [0, 50], 'color': '#FF6B6B'},
-                {'range': [50, 75], 'color': '#FFD700'},
-                {'range': [75, 100], 'color': '#4ECDC4'}
-            ],
-            'threshold': {
-                'line': {'color': 'red', 'width': 4},
-                'thickness': 0.75,
-                'value': 50
-            }
-        },
-        number={'suffix': '%'},
-        domain={'x': [0, 1], 'y': [0, 1]}
-    ))
-    
-    fig.update_layout(
-        paper_bgcolor='#1a1a1a',
-        font=dict(color='white'),
-        height=400,
-        margin=dict(l=50, r=50, t=100, b=50)
-    )
-    
-    return fig
-
 
 def create_attack_matrix(topology):
     """Create attack source-target matrix"""
