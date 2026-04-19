@@ -1,0 +1,22 @@
+{
+    "model_type": "XGBoost",
+    "num_classes": 13,
+    "class_names": [
+        "Backdoor",
+        "DDoS_HTTP",
+        "DDoS_ICMP",
+        "DDoS_TCP",
+        "Normal",
+        "OS_Fingerprinting",
+        "Password",
+        "Port_Scanning",
+        "Ransomware",
+        "SQL_injection",
+        "Uploading",
+        "Vulnerability_scanner",
+        "XSS"
+    ],
+    "n_features": 38,
+    "test_accuracy": 0.9270721089608207,
+    "train_accuracy": 0.9482112068965517
+}
