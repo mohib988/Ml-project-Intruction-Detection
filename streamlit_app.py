@@ -22,7 +22,7 @@ from network_visualization import (
 
 # ==================== PAGE CONFIGURATION ====================
 st.set_page_config(
-    page_title="🛡️ Attack Detection System",
+    page_title=" Attack Detection System",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -95,7 +95,7 @@ if 'current_attack' not in st.session_state:
 # ==================== MAIN TITLE ====================
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    st.markdown("<h1 style='text-align: center; color: #667eea;'>🛡️ Network Attack Detection System</h1>", 
+    st.markdown("<h1 style='text-align: center; color: #667eea;'> Network Attack Detection System</h1>", 
                 unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #666;'>Real-time threat detection with AI-powered analytics</p>", 
                 unsafe_allow_html=True)
