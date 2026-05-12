@@ -3,13 +3,10 @@ Streamlit Dashboard for Attack Detection System
 Real-time Network Topology Monitoring with Live Attack Detection
 """
 
+
 import streamlit as st
-import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime, timedelta
-import time
+import random
+from datetime import datetime
 from pipeline import AttackDetectionPipeline
 from device_simulator import DeviceSimulator
 from network_topology import NetworkTopology
@@ -72,7 +69,7 @@ if 'pipeline' not in st.session_state:
 
 if 'simulator' not in st.session_state:
     n_features = st.session_state.pipeline.model_info['n_features'] if st.session_state.pipeline.model_info else 100
-    st.session_state.simulator = DeviceSimulator(n_features=n_features)
+    st.session_state.simulator = DeviceSimulator()
 
 if 'network_topology' not in st.session_state:
     st.session_state.network_topology = NetworkTopology(n_iot_devices=5, n_attackers=2)
@@ -119,19 +116,25 @@ with st.sidebar:
     
     st.divider()
     
-    st.subheader("🎮 Simulation Settings")
+    st.subheader(" Simulation Settings")
     
     attack_type = st.selectbox(
         "Select Attack Type:",
         options=[
-            'DDoS_HTTP_Flood_attack',
-            'DDoS_TCP_SYN_Flood_attack', 
-            'DDoS_UDP_Flood_attack',
-            'Port_Scanning_attack',
-            'SQL_injection_attack',
-            'XSS_attack',
-            'Backdoor_attack',
-            'MITM_attack',
+            'Backdoor',
+            'DDoS_ICMP_Flood',
+            'DDoS_HTTP_Flood', 
+            'DDoS_TCP_SYN_Flood',
+            'DDoS_UDP_Flood',
+            'Port_Scanning',
+            'SQL_injection',
+            'XSS',
+            'OS_Fingerprinting',
+            'Vulnerability_scanner',
+            "Password",
+            "Uploading",
+            "Ransomware",
+
             'Normal'
         ],
         index=0
@@ -244,7 +247,7 @@ with col_atk3:
 st.divider()
 
 # ==================== ATTACK EXECUTION BUTTONS ====================
-col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+col_btn1, col_btn2, col_btn3 = st.columns([1, 3, 1])
 
 with col_btn1:
     if st.button("🔴 LAUNCH ATTACK", use_container_width=True, key="launch_attack"):
@@ -269,7 +272,14 @@ with col_btn2:
             
             if features is not None:
                 # Run ML detection
-                is_attack, result = st.session_state.pipeline.is_attack(features[0])
+               
+
+                random_index = random.randint(0, len(features) - 1)
+
+                is_attack, result = st.session_state.pipeline.is_attack(
+                    features[random_index]
+                )
+                # is_attack, result = st.session_state.pipeline.is_attack(features[0])
                 
                 st.session_state.total_packets += 1
                 
@@ -289,13 +299,13 @@ with col_btn2:
                     # Display detection result
                     st.success("🚨 ATTACK DETECTED AND BLOCKED!")
                     
-                    col_d1, col_d2, col_d3 = st.columns(3)
+                    col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                        st.metric("Detected Attack", result['prediction'])
+                        st.metric("Detected ", result['prediction'])
                     with col_d2:
                         st.metric("Confidence", f"{result['confidence']*100:.1f}%")
-                    with col_d3:
-                        st.metric("Status", "BLOCKED ✓")
+                    # with col_d3:
+                    #     st.metric("Status", "BLOCKED ✓")
                 else:
                     st.warning("⚠️ Normal traffic - no threat detected")
                 
@@ -309,13 +319,13 @@ with col_btn3:
         st.success(f"✓ {selected_attacker.ip_address} has been blocked")
         st.rerun()
 
-with col_btn4:
-    if st.button("🔓 CLEAR ALL BLOCKS", use_container_width=True, key="clear_blocks"):
-        st.session_state.simulator.clear_blocked_ips()
-        for device in st.session_state.network_topology.get_all_devices():
-            st.session_state.network_topology.unblock_device(device.device_id)
-        st.success("✓ All blocks cleared")
-        st.rerun()
+# with col_btn4:
+#     if st.button("🔓 CLEAR ALL BLOCKS", use_container_width=True, key="clear_blocks"):
+#         st.session_state.simulator.clear_blocked_ips()
+#         for device in st.session_state.network_topology.get_all_devices():
+#             st.session_state.network_topology.unblock_device(device.device_id)
+#         st.success("✓ All blocks cleared")
+#         st.rerun()
 
 st.divider()
 
