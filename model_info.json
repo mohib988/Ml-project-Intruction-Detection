@@ -16,7 +16,7 @@
         "Vulnerability_scanner",
         "XSS"
     ],
-    "n_features": 46,
-    "test_accuracy": 0.9950504901694722,
-    "train_accuracy": 0.9965379277190642
+    "n_features": 43,
+    "test_accuracy": 0.9665251877316637,
+    "train_accuracy": 0.9764255123009852
 }

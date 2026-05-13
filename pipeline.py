@@ -64,10 +64,7 @@ class AttackDetectionPipeline:
             raise ValueError("Model not loaded")
         
         # Scale the input
-        if self.scaler is not None:
-            X_scaled = self.scaler.transform(X)
-        else:
-            X_scaled = X
+        X_scaled = X
         
         # Get predictions and probabilities
         predictions = self.model.predict(X_scaled)

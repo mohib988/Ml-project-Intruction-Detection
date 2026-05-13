@@ -274,12 +274,11 @@ with col_btn2:
                 # Run ML detection
                
 
-                random_index = random.randint(0, len(features) - 1)
 
                 is_attack, result = st.session_state.pipeline.is_attack(
-                    features[random_index]
+                    features
                 )
-                # is_attack, result = st.session_state.pipeline.is_attack(features[0])
+             
                 
                 st.session_state.total_packets += 1
                 
@@ -302,8 +301,8 @@ with col_btn2:
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
                         st.metric("Detected ", result['prediction'])
-                    with col_d2:
-                        st.metric("Confidence", f"{result['confidence']*100:.1f}%")
+                    # with col_d2:
+                    #     st.metric("Confidence", f"{result['confidence']*100:.1f}%")
                     # with col_d3:
                     #     st.metric("Status", "BLOCKED ✓")
                 else:
