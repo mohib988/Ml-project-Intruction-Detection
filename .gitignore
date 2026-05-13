@@ -3,4 +3,5 @@ DNN-EdgeIIoT-dataset.csv
 .DNN-EdgeIIoT-dataset.csv
 /Dataset
 *.pyc
+*.csv
 *.pkl
