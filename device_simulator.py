@@ -61,7 +61,7 @@ class DeviceSimulator:
             print(f"  Features shape: {self.features_df.shape}")
         else:
             print("Generating features CSV from datasets...")
-            self._generate_features_csv()
+            # self._generate_features_csv()
         self.features_df = pd.read_csv("device_simulator_data.csv")    
     
     def _convert_mixed(self, val):
