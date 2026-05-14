@@ -116,35 +116,6 @@ with st.sidebar:
     
     st.divider()
     
-    st.subheader(" Simulation Settings")
-    
-    attack_type = st.selectbox(
-        "Select Attack Type:",
-        options=[
-            'Backdoor',
-            'DDoS_ICMP_Flood',
-            'DDoS_HTTP_Flood', 
-            'DDoS_TCP_SYN_Flood',
-            'DDoS_UDP_Flood',
-            'Port_Scanning',
-            'SQL_injection',
-            'XSS',
-            'OS_Fingerprinting',
-            'Vulnerability_scanner',
-            "Password",
-            "Uploading",
-            "Ransomware",
-
-            'Normal'
-        ],
-        index=0
-    )
-    
-    n_packets = st.slider("Packets per traffic:", 1, 10, 1)
-    simulation_speed = st.slider("Simulation Speed (packets/sec):", 1, 20, 5)
-    
-    st.divider()
-    
     st.subheader("🔧 System Control")
     if st.button("🔄 Reset All", use_container_width=True):
         st.session_state.detection_history = []
@@ -184,7 +155,11 @@ with col_network_controls:
     st.markdown("""
     **Device Types:**
     - 🔴 Attacker
-    - 🟢 IoT Device
+    - � Security Camera
+    - 🌡️ Smart Thermostat
+    - 🔐 Door Lock
+    - 📡 Motion Sensor
+    - 💡 Smart Lightbulb
     - 🟡 Gateway
     - 🟣 Server
     
@@ -224,7 +199,46 @@ st.divider()
 # ==================== ATTACK SIMULATION INTERFACE ====================
 st.subheader("🎮 Attack Simulation & Detection")
 
-col_atk1, col_atk2, col_atk3 = st.columns(3)
+# ==================== SIMULATION SETTINGS ====================
+st.markdown("### ⚙️ Simulation Settings")
+
+col_sim1, col_sim2, col_sim3 = st.columns(3)
+
+with col_sim1:
+    attack_type = st.selectbox(
+        "Select Attack Type:",
+        options=[
+            'Backdoor',
+            'DDoS_ICMP_Flood',
+            'DDoS_HTTP_Flood', 
+            'DDoS_TCP_SYN_Flood',
+            'DDoS_UDP_Flood',
+            'Port_Scanning',
+            'SQL_injection',
+            'XSS',
+            'OS_Fingerprinting',
+            'Vulnerability_scanner',
+            "Password",
+            "Uploading",
+            "Ransomware",
+            'Normal'
+        ],
+        index=0,
+        key="attack_type_select"
+    )
+
+with col_sim2:
+    n_packets = st.slider("Packets per traffic:", 1, 10, 1, key="packets_slider")
+
+with col_sim3:
+    simulation_speed = st.slider("Simulation Speed (packets/sec):", 1, 20, 5, key="speed_slider")
+
+st.divider()
+
+# ==================== TARGET SELECTION ====================
+st.markdown("### 🎯 Select Attack Targets")
+
+col_atk1, col_atk2 = st.columns(2)
 
 with col_atk1:
     st.markdown("**Select Attacker Device:**")
@@ -239,10 +253,6 @@ with col_atk2:
     iot_names = [f"{d.device_name} ({d.ip_address})" for d in iot_devices]
     selected_target_idx = st.selectbox("Target", range(len(iot_devices)), format_func=lambda i: iot_names[i], key="target_select")
     selected_target = iot_devices[selected_target_idx]
-
-with col_atk3:
-    st.markdown("**Selected Attack Type:**")
-    st.markdown(f"<div class='device-card'><strong>{attack_type}</strong></div>", unsafe_allow_html=True)
 
 st.divider()
 
@@ -259,6 +269,7 @@ with col_btn1:
         )
         st.session_state.current_attack = attack_record
         st.info(f"🚀 Attack initiated: {selected_attacker.device_name} → {selected_target.device_name}")
+        st.rerun()
 
 with col_btn2:
     if st.button("🛡️ RUN DETECTION", use_container_width=True, key="detect_attack"):

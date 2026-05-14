@@ -71,15 +71,23 @@ class NetworkTopology:
         )
         self.devices['gateway_001'] = gateway
         
-        # Create IoT Devices in a circle
+        # Create IoT Devices in a circle - Realistic device types
+        device_names = [
+            'Security Camera 1', 'Smart Thermostat', 'Door Lock',
+            'Motion Sensor', 'Smart Lightbulb', 'Temperature Sensor'
+        ]
+        device_emojis = ['📹', '🌡️', '🔐', '📡', '💡', '🌡️']
+        
         for i in range(n_iot_devices):
             angle = (2 * np.pi * i) / n_iot_devices
             x = 5 * np.cos(angle)
             y = 5 * np.sin(angle)
             
+            device_name = device_names[i % len(device_names)]
+            
             device = NetworkDevice(
                 device_id=f'iot_{i+1:02d}',
-                device_name=f'IoT Sensor {i+1}',
+                device_name=f'{device_emojis[i % len(device_emojis)]} {device_name}',
                 device_type='iot',
                 ip_address=f'192.168.1.{i+10}',
                 x=x, y=y
@@ -136,13 +144,24 @@ class NetworkTopology:
     def start_attack(self, attacker_id, target_id, attack_type):
         """Record an attack attempt"""
         timestamp = datetime.now()
-        
+
         attacker = self.get_device(attacker_id)
         target = self.get_device(target_id)
-        
+
         if not (attacker and target):
             return None
-        
+
+        # Remove previous attack links
+        self.connections = [
+            conn for conn in self.connections
+            if conn[2] != 'attack'
+        ]
+
+        # Reset previous attacked devices status
+        for device in self.devices.values():
+            if device.status == 'under_attack':
+                device.status = 'normal'
+
         # Log attack
         attack_record = {
             'timestamp': timestamp,
@@ -153,19 +172,18 @@ class NetworkTopology:
             'attack_type': attack_type,
             'status': 'active'
         }
-        
+
         self.attack_log.append(attack_record)
-        
+
         # Update device status
         target.status = 'under_attack'
         target.last_activity = timestamp
         target.attack_count += 1
-        
-        # Add connection
+
+        # Add new attack connection
         self.connections.append((attacker_id, target_id, 'attack'))
-        
+
         return attack_record
-    
     def end_attack(self, attack_record, blocked=False):
         """End an attack"""
         attack_record['status'] = 'blocked' if blocked else 'failed'

@@ -37,15 +37,7 @@ def main():
             print(f"  ✗ {file} - MISSING")
             missing_files.append(file)
     
-    if missing_files:
-        print("\n⚠️  WARNING: Model files not found!")
-        print("Please run the training notebook first:")
-        print("  jupyter notebook lstm_attack_timeseries.ipynb")
-        sys.exit(1)
-    
-    # Check dependencies
-    print("\n✓ Checking dependencies...")
-    
+
     required_packages = {
         'streamlit': 'streamlit',
         'pandas': 'pandas',
@@ -70,16 +62,9 @@ def main():
             sys.executable, '-m', 'pip', 'install', '-r', 'requirements_streamlit.txt'
         ])
     
-    print("\n" + "="*70)
-    print("🚀 STARTING STREAMLIT DASHBOARD")
-    print("="*70)
+
     print("\n📱 Dashboard will open at: http://localhost:8501")
-    print("\n💡 Tips:")
-    print("  • Select an attack type from the sidebar")
-    print("  • Click 'Start Simulation' to begin detection")
-    print("  • View statistics and blocklist in other tabs")
-    print("  • Press Ctrl+C to stop the server")
-    print("\n" + "-"*70 + "\n")
+
     
     # Start Streamlit
     try:
