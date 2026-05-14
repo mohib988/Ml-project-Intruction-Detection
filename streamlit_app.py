@@ -7,6 +7,8 @@ Real-time Network Topology Monitoring with Live Attack Detection
 import streamlit as st
 import random
 from datetime import datetime
+import time
+import pandas as pd
 from pipeline import AttackDetectionPipeline
 from device_simulator import DeviceSimulator
 from network_topology import NetworkTopology
@@ -22,7 +24,7 @@ st.set_page_config(
     page_title=" Attack Detection System",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ==================== CUSTOM STYLING ====================
@@ -99,10 +101,10 @@ with col2:
 
 st.divider()
 
-# ==================== SIDEBAR CONFIGURATION ====================
-with st.sidebar:
-    st.markdown("# ⚙️ Configuration")
-    
+# ==================== CONFIGURATION (INLINE) ====================
+col_cfg_left, col_cfg_right = st.columns([3, 1])
+
+with col_cfg_left:
     st.subheader("📊 Model Information")
     if st.session_state.pipeline.model_info:
         info = st.session_state.pipeline.model_info
@@ -113,9 +115,8 @@ with st.sidebar:
         
         **Accuracy**: {info.get('test_accuracy', 0)*100:.2f}%
         """)
-    
-    st.divider()
-    
+
+with col_cfg_right:
     st.subheader("🔧 System Control")
     if st.button("🔄 Reset All", use_container_width=True):
         st.session_state.detection_history = []
@@ -127,9 +128,7 @@ with st.sidebar:
         st.session_state.simulator.clear_blocked_ips()
         st.session_state.simulator.clear_history()
         st.rerun()
-    
-    st.divider()
-    
+
     col_block1, col_block2 = st.columns(2)
     with col_block1:
         st.metric("📦 Packets", st.session_state.total_packets)
@@ -146,7 +145,7 @@ with col_network_main:
     # Display network graph
     try:
         fig_network = create_network_graph(st.session_state.network_topology)
-        st.plotly_chart(fig_network, use_container_width=True, height=600)
+        st.plotly_chart(fig_network, use_container_width=True, height=480)
     except Exception as e:
         st.error(f"Error rendering network: {e}")
 
@@ -256,6 +255,17 @@ with col_atk2:
 
 st.divider()
 
+# Small live graph beside the simulation controls so you don't need to scroll up
+if 'pulse_phase' not in st.session_state:
+    st.session_state['pulse_phase'] = 0
+
+graph_sim_placeholder = st.empty()
+try:
+    fig_small = create_network_graph(st.session_state.network_topology, pulse_phase=st.session_state.get('pulse_phase', 0))
+    graph_sim_placeholder.plotly_chart(fig_small, use_container_width=True, height=300)
+except Exception:
+    pass
+
 # ==================== ATTACK EXECUTION BUTTONS ====================
 col_btn1, col_btn2, col_btn3 = st.columns([1, 3, 1])
 
@@ -302,6 +312,8 @@ with col_btn2:
                         'target': selected_target.ip_address,
                         'attack_type': result['prediction'],
                         'confidence': result['confidence'],
+                        'probabilities': result.get('probabilities', {}),
+                        'features': features.tolist(),
                         'status': 'BLOCKED',
                         'src_ip': src_ip
                     })
@@ -320,6 +332,13 @@ with col_btn2:
                     st.warning("⚠️ Normal traffic - no threat detected")
                 
                 st.session_state.current_attack = None
+                # advance pulse phase and refresh small graph
+                st.session_state['pulse_phase'] = (st.session_state.get('pulse_phase', 0) + 1) % 4
+                try:
+                    fig_small = create_network_graph(st.session_state.network_topology, pulse_phase=st.session_state['pulse_phase'])
+                    graph_sim_placeholder.plotly_chart(fig_small, use_container_width=True, height=300)
+                except Exception:
+                    pass
 
 with col_btn3:
     if st.button("🚫 BLOCK ATTACKER IP", use_container_width=True, key="block_attacker"):
@@ -336,6 +355,140 @@ with col_btn3:
 #             st.session_state.network_topology.unblock_device(device.device_id)
 #         st.success("✓ All blocks cleared")
 #         st.rerun()
+
+# ==================== MULTI-ATTACK SIMULATION ====================
+st.markdown("### 🔁 Batch Simulation")
+col_sim_a, col_sim_b, col_sim_c = st.columns(3)
+with col_sim_a:
+    iterations = st.number_input("Number of attempts:", min_value=1, max_value=200, value=10, step=1, key='sim_iterations')
+with col_sim_b:
+    randomize_targets = st.checkbox("Randomize attacker/target", value=False, key='sim_randomize')
+with col_sim_c:
+    show_details_after = st.checkbox("Show detection details after run", value=True, key='sim_show_details')
+
+if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
+    progress = st.progress(0)
+    status_area = st.empty()
+    for i in range(int(iterations)):
+        # choose attacker/target
+        if randomize_targets:
+            attacker = random.choice(st.session_state.network_topology.get_attackers())
+            target = random.choice(st.session_state.network_topology.get_iot_devices())
+        else:
+            attacker = selected_attacker
+            target = selected_target
+
+        # start attack record
+        attack_record = st.session_state.network_topology.start_attack(
+            attacker.device_id, target.device_id, attack_type
+        )
+        st.session_state.current_attack = attack_record
+
+        # generate traffic and run detection
+        features, src_ip = st.session_state.simulator.generate_traffic(attack_type, n_samples=1)
+        if features is None:
+            status_area.warning(f"Simulation: {src_ip}")
+            continue
+
+        is_attack, result = st.session_state.pipeline.is_attack(features)
+
+        st.session_state.total_packets += 1
+
+        if is_attack:
+            st.session_state.total_attacks += 1
+            st.session_state.network_topology.end_attack(attack_record, blocked=True)
+            st.session_state.detection_history.append({
+                'timestamp': datetime.now(),
+                'attacker': attacker.ip_address,
+                'target': target.ip_address,
+                'attack_type': result['prediction'],
+                'confidence': result['confidence'],
+                'probabilities': result.get('probabilities', {}),
+                'features': features.tolist(),
+                'status': 'BLOCKED',
+                'src_ip': src_ip
+            })
+            status_area.success(f"[{i+1}/{iterations}] Detected and blocked: {attacker.device_name} → {target.device_name}")
+        else:
+            st.session_state.detection_history.append({
+                'timestamp': datetime.now(),
+                'attacker': attacker.ip_address,
+                'target': target.ip_address,
+                'attack_type': result['prediction'],
+                'confidence': result['confidence'],
+                'probabilities': result.get('probabilities', {}),
+                'features': features.tolist(),
+                'status': 'PASSED',
+                'src_ip': src_ip
+            })
+            status_area.info(f"[{i+1}/{iterations}] No threat detected from {attacker.device_name}")
+
+        # optional pacing
+        time.sleep(max(0.0, 1.0 / max(1, simulation_speed)))
+        progress.progress((i + 1) / int(iterations))
+        # update pulse and small graph
+        st.session_state['pulse_phase'] = (st.session_state.get('pulse_phase', 0) + 1) % 4
+        try:
+            fig_small = create_network_graph(st.session_state.network_topology, pulse_phase=st.session_state['pulse_phase'])
+            graph_sim_placeholder.plotly_chart(fig_small, use_container_width=True, height=300)
+        except Exception:
+            pass
+
+    # Show visual summaries
+    st.divider()
+    st.subheader("📈 Simulation Summary")
+    # Attack flow
+    flow_df = create_attack_flow_visualization(st.session_state.network_topology)
+    if flow_df is not None and not flow_df.empty:
+        st.markdown("**Attack Flow (recent active attacks)**")
+        st.dataframe(flow_df, use_container_width=True)
+
+    # Attack timeline
+    timeline_fig = create_attack_timeline(st.session_state.network_topology)
+    if timeline_fig is not None:
+        st.markdown("**Attack Timeline by Type**")
+        st.plotly_chart(timeline_fig, use_container_width=True)
+
+    # Attack matrix
+    matrix_df = create_attack_matrix(st.session_state.network_topology)
+    if matrix_df is not None and not matrix_df.empty:
+        st.markdown("**Attack Source → Target Matrix**")
+        st.dataframe(matrix_df, use_container_width=True)
+
+    # Detection history
+    if st.session_state.detection_history:
+        st.markdown("**Detection History**")
+        hist_df = pd.DataFrame([{
+            'time': h['timestamp'].strftime('%H:%M:%S'),
+            'attacker': h['attacker'],
+            'target': h['target'],
+            'pred': h['attack_type'],
+            'confidence': f"{h['confidence']*100:.1f}%",
+            'status': h['status']
+        } for h in st.session_state.detection_history])
+        st.dataframe(hist_df, use_container_width=True)
+
+        if show_details_after:
+            idx = st.selectbox("Select detection to inspect:", list(range(len(st.session_state.detection_history))), format_func=lambda i: f"{i} - {st.session_state.detection_history[i]['attacker']} → {st.session_state.detection_history[i]['target']}")
+            rec = st.session_state.detection_history[int(idx)]
+            st.markdown(f"**Prediction:** {rec['attack_type']} — **Confidence:** {rec['confidence']*100:.1f}%")
+            probs = rec.get('probabilities', {})
+            if probs:
+                probs_df = pd.DataFrame(list(probs.items()), columns=['Class', 'Probability']).sort_values('Probability', ascending=False)
+                st.dataframe(probs_df, use_container_width=True)
+
+            # show top feature values (by absolute value)
+            feats = rec.get('features')
+            if feats:
+                feat_series = pd.Series(feats)
+                top_idx = feat_series.abs().sort_values(ascending=False).head(10).index
+                top_vals = feat_series.iloc[top_idx]
+                feat_df = pd.DataFrame({'feature_index': top_vals.index.astype(str), 'value': top_vals.values})
+                st.markdown("**Top feature values (by magnitude)**")
+                st.dataframe(feat_df, use_container_width=True)
+
+    st.success("Simulation complete")
+    st.rerun()
 
 st.divider()
 

@@ -9,7 +9,7 @@ import numpy as np
 from network_topology import NetworkTopology
 
 
-def create_network_graph(topology):
+def create_network_graph(topology, pulse_phase: int = 0):
     """
     Create an interactive network graph using Plotly
     
@@ -47,8 +47,54 @@ def create_network_graph(topology):
                 hoverinfo='none',
                 showlegend=False
             ))
+
+            # Add an additional translucent halo for attack edges to make them stand out
+            if edge['type'] == 'attack':
+                fig.add_trace(go.Scatter(
+                    x=[src['x'], tgt['x'], None],
+                    y=[src['y'], tgt['y'], None],
+                    mode='lines',
+                    line=dict(width=max(6, edge['width'] * 3), color='rgba(255,80,80,0.20)'),
+                    hoverinfo='none',
+                    showlegend=False
+                ))
+
+                # mid-point pulse marker for visual pulse effect (size changes with pulse_phase)
+                mid_x = (src['x'] + tgt['x']) / 2.0
+                mid_y = (src['y'] + tgt['y']) / 2.0
+                base_size = 10
+                pulse_size = base_size + (pulse_phase % 4) * 6
+                fig.add_trace(go.Scatter(
+                    x=[mid_x],
+                    y=[mid_y],
+                    mode='markers',
+                    marker=dict(size=pulse_size, color='rgba(255,60,60,0.9)', opacity=0.6),
+                    hoverinfo='none',
+                    showlegend=False
+                ))
     
     # Add nodes
+    # Add 'pulse/halo' overlay for attacked nodes (visual pulse effect)
+    halo_x = [n['x'] for n in nodes if n['status'] in ('under_attack', 'attacked')]
+    halo_y = [n['y'] for n in nodes if n['status'] in ('under_attack', 'attacked')]
+    halo_colors = [n['color'] for n in nodes if n['status'] in ('under_attack', 'attacked')]
+    halo_sizes = [n['size'] * 1.6 for n in nodes if n['status'] in ('under_attack', 'attacked')]
+
+    if halo_x:
+        fig.add_trace(go.Scatter(
+            x=halo_x,
+            y=halo_y,
+            mode='markers',
+            marker=dict(
+                size=halo_sizes,
+                color=halo_colors,
+                opacity=0.25,
+                line=dict(width=0)
+            ),
+            hoverinfo='none',
+            showlegend=False
+        ))
+
     fig.add_trace(go.Scatter(
         x=node_x,
         y=node_y,
@@ -72,14 +118,14 @@ def create_network_graph(topology):
         title='🌐 Network Topology - Live Attack Detection',
         showlegend=False,
         hovermode='closest',
-        margin=dict(b=0, l=0, r=0, t=40),
+        margin=dict(b=10, l=0, r=0, t=20),
         plot_bgcolor='#0f1a26',
         paper_bgcolor='#0f1a26',
         font=dict(color='white', size=11),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         width=None,
-        height=600,
+        height=480,
         dragmode='pan'
     )
     
