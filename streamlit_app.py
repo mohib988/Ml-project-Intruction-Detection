@@ -9,6 +9,9 @@ import random
 from datetime import datetime
 import time
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from sklearn.metrics import confusion_matrix, classification_report
 from pipeline import AttackDetectionPipeline
 from device_simulator import DeviceSimulator
 from network_topology import NetworkTopology
@@ -208,10 +211,10 @@ with col_sim1:
         "Select Attack Type:",
         options=[
             'Backdoor',
-            'DDoS_ICMP_Flood',
-            'DDoS_HTTP_Flood', 
-            'DDoS_TCP_SYN_Flood',
-            'DDoS_UDP_Flood',
+            'DDoS_ICMP',
+            'DDoS_HTTP', 
+            'DDoS_TCP_SYN',
+            'DDoS_UDP',
             'Port_Scanning',
             'SQL_injection',
             'XSS',
@@ -277,9 +280,10 @@ with col_btn1:
             selected_target.device_id,
             attack_type
         )
+        print(f"Started attack: {attack_record}")
         st.session_state.current_attack = attack_record
         st.info(f"🚀 Attack initiated: {selected_attacker.device_name} → {selected_target.device_name}")
-        st.rerun()
+        # st.rerun()
 
 with col_btn2:
     if st.button("🛡️ RUN DETECTION", use_container_width=True, key="detect_attack"):
@@ -310,7 +314,8 @@ with col_btn2:
                         'timestamp': datetime.now(),
                         'attacker': selected_attacker.ip_address,
                         'target': selected_target.ip_address,
-                        'attack_type': result['prediction'],
+                        'actual': attack['attack_type'],
+                        'predicted': result['prediction'],
                         'confidence': result['confidence'],
                         'probabilities': result.get('probabilities', {}),
                         'features': features.tolist(),
@@ -323,13 +328,23 @@ with col_btn2:
                     
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                        st.metric("Detected ", result['prediction'])
-                    # with col_d2:
-                    #     st.metric("Confidence", f"{result['confidence']*100:.1f}%")
-                    # with col_d3:
-                    #     st.metric("Status", "BLOCKED ✓")
+                        st.metric("Actual", attack['attack_type'])
+                    with col_d2:
+                        st.metric("Predicted", result['prediction'])
                 else:
                     st.warning("⚠️ Normal traffic - no threat detected")
+                    st.session_state.detection_history.append({
+                        'timestamp': datetime.now(),
+                        'attacker': selected_attacker.ip_address,
+                        'target': selected_target.ip_address,
+                        'actual': attack['attack_type'],
+                        'predicted': result.get('prediction', 'Normal'),
+                        'confidence': result.get('confidence', 0.0),
+                        'probabilities': result.get('probabilities', {}),
+                        'features': features.tolist(),
+                        'status': 'PASSED',
+                        'src_ip': src_ip
+                    })
                 
                 st.session_state.current_attack = None
                 # advance pulse phase and refresh small graph
@@ -401,7 +416,8 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
                 'timestamp': datetime.now(),
                 'attacker': attacker.ip_address,
                 'target': target.ip_address,
-                'attack_type': result['prediction'],
+                'actual': attack_record.get('attack_type', attack_type),
+                'predicted': result['prediction'],
                 'confidence': result['confidence'],
                 'probabilities': result.get('probabilities', {}),
                 'features': features.tolist(),
@@ -414,8 +430,9 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
                 'timestamp': datetime.now(),
                 'attacker': attacker.ip_address,
                 'target': target.ip_address,
-                'attack_type': result['prediction'],
-                'confidence': result['confidence'],
+                'actual': attack_record.get('attack_type', attack_type),
+                'predicted': result.get('prediction', 'Normal'),
+                'confidence': result.get('confidence', 0.0),
                 'probabilities': result.get('probabilities', {}),
                 'features': features.tolist(),
                 'status': 'PASSED',
@@ -436,7 +453,83 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
 
     # Show visual summaries
     st.divider()
-    st.subheader("📈 Simulation Summary")
+    st.subheader("📈 Attack Detection Summary")
+    
+    # Detection accuracy metrics
+    if st.session_state.detection_history:
+        hist_data = st.session_state.detection_history
+        
+        # Extract actual and predicted labels
+        y_actual = [h.get('actual', h.get('attack_type', 'Unknown')) for h in hist_data]
+        y_predicted = [h.get('predicted', h.get('attack_type', 'Unknown')) for h in hist_data]
+        
+        # Metrics row
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            correct = sum(1 for a, p in zip(y_actual, y_predicted) if a == p)
+            st.metric("✅ Correct Predictions", f"{correct}/{len(y_actual)}")
+        with col_m2:
+            accuracy = correct / len(y_actual) * 100 if y_actual else 0
+            st.metric("🎯 Accuracy", f"{accuracy:.1f}%")
+        with col_m3:
+            blocked = sum(1 for h in hist_data if h['status'] == 'BLOCKED')
+            st.metric("🚫 Attacks Blocked", blocked)
+        with col_m4:
+            passed = sum(1 for h in hist_data if h['status'] == 'PASSED')
+            st.metric("⚠️ Passed Undetected", passed)
+        
+        st.divider()
+        
+        # Actual vs Predicted Counts
+        col_c1, col_c2 = st.columns(2)
+        
+        with col_c1:
+            st.markdown("**Actual Attack Distribution**")
+            actual_counts = pd.Series(y_actual).value_counts().sort_values(ascending=False)
+            fig_actual = go.Figure(data=[
+                go.Bar(x=actual_counts.index, y=actual_counts.values, marker_color='lightblue')
+            ])
+            fig_actual.update_layout(title="Actual Attacks", xaxis_title="Attack Type", yaxis_title="Count", showlegend=False, height=350)
+            st.plotly_chart(fig_actual, use_container_width=True)
+        
+        with col_c2:
+            st.markdown("**Predicted Attack Distribution**")
+            pred_counts = pd.Series(y_predicted).value_counts().sort_values(ascending=False)
+            fig_pred = go.Figure(data=[
+                go.Bar(x=pred_counts.index, y=pred_counts.values, marker_color='lightcoral')
+            ])
+            fig_pred.update_layout(title="Predicted Attacks", xaxis_title="Attack Type", yaxis_title="Count", showlegend=False, height=350)
+            st.plotly_chart(fig_pred, use_container_width=True)
+        
+        st.divider()
+        
+        # Confusion Matrix
+        st.markdown("**Confusion Matrix - Actual vs Predicted**")
+        unique_labels = sorted(set(y_actual + y_predicted))
+        cm = confusion_matrix(y_actual, y_predicted, labels=unique_labels)
+        
+        # Create heatmap
+        fig_cm = go.Figure(data=go.Heatmap(
+            z=cm,
+            x=unique_labels,
+            y=unique_labels,
+            colorscale='Blues',
+            text=cm,
+            texttemplate='%{text}',
+            textfont={"size": 10},
+            hoverongaps=False
+        ))
+        fig_cm.update_layout(
+            title="Confusion Matrix: True Labels vs Predicted",
+            xaxis_title="Predicted Label",
+            yaxis_title="True Label",
+            height=500,
+            width=600
+        )
+        st.plotly_chart(fig_cm, use_container_width=True)
+        
+        st.divider()
+    
     # Attack flow
     flow_df = create_attack_flow_visualization(st.session_state.network_topology)
     if flow_df is not None and not flow_df.empty:
@@ -462,7 +555,8 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
             'time': h['timestamp'].strftime('%H:%M:%S'),
             'attacker': h['attacker'],
             'target': h['target'],
-            'pred': h['attack_type'],
+            'actual': h.get('actual', 'N/A'),
+            'predicted': h.get('predicted', h.get('attack_type', 'N/A')),
             'confidence': f"{h['confidence']*100:.1f}%",
             'status': h['status']
         } for h in st.session_state.detection_history])
@@ -471,7 +565,17 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
         if show_details_after:
             idx = st.selectbox("Select detection to inspect:", list(range(len(st.session_state.detection_history))), format_func=lambda i: f"{i} - {st.session_state.detection_history[i]['attacker']} → {st.session_state.detection_history[i]['target']}")
             rec = st.session_state.detection_history[int(idx)]
-            st.markdown(f"**Prediction:** {rec['attack_type']} — **Confidence:** {rec['confidence']*100:.1f}%")
+            
+            col_det1, col_det2, col_det3 = st.columns(3)
+            with col_det1:
+                st.metric("Actual Label", rec.get('actual', 'N/A'))
+            with col_det2:
+                st.metric("Predicted Label", rec.get('predicted', 'N/A'))
+            with col_det3:
+                is_correct = rec.get('actual') == rec.get('predicted')
+                st.metric("Correct", "✅ Yes" if is_correct else "❌ No")
+            
+            st.markdown(f"**Confidence:** {rec['confidence']*100:.1f}%")
             probs = rec.get('probabilities', {})
             if probs:
                 probs_df = pd.DataFrame(list(probs.items()), columns=['Class', 'Probability']).sort_values('Probability', ascending=False)
@@ -483,12 +587,13 @@ if st.button("🎯 SIMULATE MULTIPLE ATTACKS", key='simulate_multiple'):
                 feat_series = pd.Series(feats)
                 top_idx = feat_series.abs().sort_values(ascending=False).head(10).index
                 top_vals = feat_series.iloc[top_idx]
-                feat_df = pd.DataFrame({'feature_index': top_vals.index.astype(str), 'value': top_vals.values})
+                feature_names = [f"feature_{i}" for i in top_vals.index]
+                feat_df = pd.DataFrame({'feature_name': feature_names, 'value': top_vals.values})
                 st.markdown("**Top feature values (by magnitude)**")
                 st.dataframe(feat_df, use_container_width=True)
 
     st.success("Simulation complete")
-    st.rerun()
+    # st.rerun()
 
 st.divider()
 
